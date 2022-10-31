@@ -10,11 +10,6 @@ const { token } = require("./config.json");
 // Intents also define which events Discord should send to your bot
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// When the client is ready, run this code (only once)
-// We use 'c' for the event parameter to keep it separate from the already defined 'client'
-client.once(Events.ClientReady, (c) => {
-  console.log(`Ready! Logged in as ${c.user.tag}`);
-});
 console.log(token);
 //load the command files on the startup
 client.commands = new Collection();
@@ -39,24 +34,24 @@ for (const file of commandFiles) {
     );
   }
 }
-//executing the commands
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  const command = interaction.client.commands.get(interaction.commandName);
-  if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
-    return;
+
+//get the events from the events folder
+//get the path of the events folder
+const eventsPath = path.join(__dirname, "events");
+//read all the files into events files array
+const eventsFiles = fs
+  .readdirSync(eventsPath)
+  .filter((file) => file.endsWith(".js"));
+//iterate the event files and execute
+for (const file of eventsFiles) {
+  const filePath = path.join(eventsPath, file);
+  const event = require(filePath);
+  if (event.once) {
+    client.once(event.name, (...args) => event.execute(...args));
+  } else {
+    client.on(event.name, (...args) => event.execute(...args));
   }
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
-    await interaction.reply({
-      content: "There was an error while executing this command!",
-      ephemeral: true,
-    });
-  }
-});
+}
 
 //login into the Discord with client's token
 client.login(token);
